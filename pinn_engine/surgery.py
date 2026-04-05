@@ -23,8 +23,8 @@ class PINNGradientSurgery:
         
         # Initialize GTN stats if needed
         if self.use_gtn and self.task_norms is None:
-            from .balancer import Welford
-            self.task_norms = [Welford() for _ in range(num_losses)]
+            from .balancer import EMAWelford
+            self.task_norms = [EMAWelford() for _ in range(num_losses)]
 
         grads = []
         # 1. Compute gradients for each loss individually
@@ -66,6 +66,7 @@ class PINNGradientSurgery:
         self._set_flat_grad(final_grad)
         self._optim.step()
 
+        # Return original gradient magnitudes for balancing statistics
         with torch.no_grad():
              grad_magnitudes = [torch.norm(g) for g in grads]
              
@@ -88,6 +89,8 @@ class PINNGradientSurgery:
         for group in self._optim.param_groups:
             for p in group['params']:
                 num_el = p.numel()
+                if p.grad is None:
+                    p.grad = torch.zeros_like(p.data)
                 p.grad.data.copy_(flat_grad[offset:offset + num_el].view_as(p.grad.data))
                 offset += num_el
 

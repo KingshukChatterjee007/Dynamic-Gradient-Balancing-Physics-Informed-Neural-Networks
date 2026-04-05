@@ -7,12 +7,12 @@ class SineLayer(nn.Module):
     SIREN activation layer as proposed in Sitzmann et al., 2020.
     Excellent for capturing high-frequency details and stable derivatives.
     """
-    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30):
+    def __init__(self, in_features, out_features, bias=True, is_first=False, omega_0=30.):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first
         self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features, bias=bias)
+        self.linear = nn.Linear(in_features, out_features, bias=bias).to(torch.float64)
         self.init_weights()
 
     def init_weights(self):
@@ -36,7 +36,7 @@ class PINN(nn.Module):
         out_features: Output dimensions (e.g. 1 for u)
         omega_0: SIREN fundamental frequency parameter
     """
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features, outer_omega_0=30):
+    def __init__(self, in_features, hidden_features, hidden_layers, out_features, outer_omega_0=30.):
         super().__init__()
         
         self.net = []
@@ -48,13 +48,13 @@ class PINN(nn.Module):
             self.net.append(SineLayer(hidden_features, hidden_features, is_first=False, omega_0=outer_omega_0))
 
         # Output Layer (Linear for regression)
-        final_linear = nn.Linear(hidden_features, out_features)
+        final_linear = nn.Linear(hidden_features, out_features).to(torch.float64)
         with torch.no_grad():
             final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / outer_omega_0, 
                                          np.sqrt(6 / hidden_features) / outer_omega_0)
             
         self.net.append(final_linear)
-        self.net = nn.Sequential(*self.net)
+        self.net = nn.Sequential(*self.net).to(torch.float64)
 
     def forward(self, coords):
         # coords shape: (batch, in_features)
