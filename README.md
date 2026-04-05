@@ -36,29 +36,23 @@ Simulates steady flow at **$Re=100$**.
 - Resolves the destructive conflict between **Pressure ($p$)** and **Velocity ($u, v$)** gradients.
 - Ensures local mass conservation (Continuity) is satisfied early in training.
 
-## 🛠️ Usage
+## 📁 Repository Structure
+- `pinn_engine/`: Core DGB-PINN engine (Model, Balancer, Surgery).
+- `problems/`: Physics residual definitions (Allen-Cahn, Navier-Stokes).
+- `experiments/`: Training and validation scripts.
+- `results/`: Output logs, plots, and saved model weights.
 
-### Installation
-```bash
-pip install torch numpy matplotlib
-```
+## 🛠️ Usage
 
 ### Run Allen-Cahn Training
 ```bash
-python train.py
+python experiments/run_ac.py
 ```
 
 ### Run Navier-Stokes (Cylinder Flow) Training
 ```bash
-python train_cylinder.py
+python experiments/run_cylinder.py
 ```
-
-## 📜 Repository Structure
-- `pinn_model.py`: SIREN-based Multi-Output MLP.
-- `db_pinn_balancer.py`: Dual-Balancing magnitude engine.
-- `directional_alignment.py`: Gradient Surgery and GTN module.
-- `navier_stokes_2d.py`: 2D Incompressible Fluid Residuals.
-- `train_cylinder.py`: Benchmark script for aerodynamics.
 
 ---
 *Developed for research into "Type II" PINN failures and advanced gradient balancing (2026).*

@@ -23,7 +23,7 @@ class PINNGradientSurgery:
         
         # Initialize GTN stats if needed
         if self.use_gtn and self.task_norms is None:
-            from db_pinn_balancer import Welford
+            from .balancer import Welford
             self.task_norms = [Welford() for _ in range(num_losses)]
 
         grads = []

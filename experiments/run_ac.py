@@ -2,10 +2,16 @@ import torch
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-from pinn_model import PINN
-from db_pinn_balancer import DBBalancer
-from directional_alignment import PINNGradientSurgery
-from pde_problems import allen_cahn_residual, initial_condition_loss, boundary_condition_loss, sample_domain
+import sys
+import os
+
+# Set project root in path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from pinn_engine.model import PINN
+from pinn_engine.balancer import DBBalancer
+from pinn_engine.surgery import PINNGradientSurgery
+from problems.allen_cahn import allen_cahn_residual, initial_condition_loss, boundary_condition_loss, sample_domain
 
 def train(max_epochs=5000, lr=0.001, use_db=True, use_surgery=True):
     # 1. Initialize Model

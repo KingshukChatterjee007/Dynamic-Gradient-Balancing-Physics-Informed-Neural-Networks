@@ -2,10 +2,16 @@ import torch
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-from pinn_model import PINN
-from db_pinn_balancer import DBBalancer
-from directional_alignment import PINNGradientSurgery
-from navier_stokes_2d import navier_stokes_residuals, cylinder_bc_loss, sample_domain_ns
+import sys
+import os
+
+# Set project root in path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from pinn_engine.model import PINN
+from pinn_engine.balancer import DBBalancer
+from pinn_engine.surgery import PINNGradientSurgery
+from problems.navier_stokes import navier_stokes_residuals, cylinder_bc_loss, sample_domain_ns
 
 def train_cylinder(max_epochs=2000, lr=0.0005, re=100, use_gtn=True):
     # 1. Initialize Model (3 outputs: u, v, p)
