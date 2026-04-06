@@ -3,56 +3,41 @@
 [![SOTA 2026](https://img.shields.io/badge/Status-SOTA%202026-blue.svg)](https://github.com/KingshukChatterjee007/Dynamic-Gradient-Balancing-Physics-Informed-Neural-Networks)
 [![Physics-Informed ML](https://img.shields.io/badge/Field-Physics--Informed%20ML-green.svg)](https://github.com/KingshukChatterjee007/Dynamic-Gradient-Balancing-Physics-Informed-Neural-Networks)
 
-A state-of-the-art framework for solving **Gradient Pathology** in Physics-Informed Neural Networks (PINNs). This repository implements solutions for both **Magnitude Imbalance (Type I)** and the "Unsolved" **Directional Gradient Conflict (Type II - The Tug-of-War)**.
+# Dynamic Gradient Balancing in Physics-Informed Neural Networks (PINNs)
 
-## 🚀 Key Features
+## Overview
 
-### 1. Dual-Balancing (DB-PINN)
-Addresses the magnitude imbalance between PDE residuals and boundary conditions.
-- **Inter-balancing**: Scalability between governed equations and external constraints.
-- **Intra-balancing**: Granular weighting for complex boundary regions (e.g., turbulent wake vs. laminar inflow).
-- **Stochastic Spike Filtering**: Uses Welford's online algorithm to stabilize weight updates against stochastic gradient noise.
+This repository contains a highly optimized Physics-Informed Neural Network (PINN) framework engineered to solve stiff, non-linear Partial Differential Equations (PDEs). Standard PINNs frequently fail to converge on complex physical systems due to gradient pathology—where multi-objective loss functions (e.g., physical residuals vs. boundary conditions) create severely conflicting optimization trajectories.
 
-### 2. Directional Alignment Module (DAM)
-Resolves the "Tug-of-War" where satisfying one loss term actively moves the model away from another.
-- **Gradient Surgery (PCGrad)**: Projects conflicting gradients onto each other's normal planes to find a synergistic descent path.
-- **Conflict Resolution**: Specifically tuned for the hierarchical structure of PINN losses.
+This framework mitigates these optimization failures by implementing a tri-modular architecture: Dynamic Gradient Balancing (DB-PINN), Directional Gradient Alignment (PCGrad), and Energy-Adaptive Sampling (EAS). The architecture is benchmarked against rigorous computational fluid dynamics (CFD) and phase-field problems, including 2D Navier-Stokes (Cylinder Flow at Re=100) and the Allen-Cahn equation.
 
-### 3. Gradient Task Normalization (GTN)
-Optimized for multi-variable fluid dynamics (e.g., Navier-Stokes).
-- Normalizes gradients across vastly different numerical scales (e.g., $Pressure$ vs. $Velocity$).
-- Prevents high-magnitude pressure residuals from "drowning out" velocity directional information.
+## Key Architecture & Features
 
-### 4. SIREN-based Architecture
-- Utilizes **Sinusoidal Representation Networks** (SIREN) for superior capturing of high-frequency components and smooth derivatives in stiff PDEs.
+* **Generic PINN with SIREN Integration:** Utilizes Sinusoidal Representation Networks (`SineLayer`) to naturally capture high-frequency components and ensure stable, non-vanishing higher-order derivatives required for stiff PDEs.
+* **Dual-Balancing (DB-PINN):** Employs an online statistical tracking mechanism (`EMAWelford` algorithm) using Exponential Moving Averages to dynamically weight loss components, preventing boundary constraints from dominating the underlying physical laws.
+* **Directional Alignment Module (DAM):** Integrates Gradient Surgery (PCGrad) and Gradient Task Normalization (GTN). This prevents "Tug-of-War" gradient conflicts by projecting interfering gradients onto each other's normal planes, ensuring smooth multi-task optimization.
+* **Energy-Adaptive Sampling (EAS):** Instead of uniform collocation points, this module dynamically allocates training points proportionally to the pointwise energy density (residual error) of the PDE, focusing computational effort on turbulent or stiff regions.
+* **Inverse Discovery Machine:** Includes an `InverseLearner` module capable of dynamically extracting unknown physical coefficients from synthetic, noisy experimental data.
 
-## 📊 Benchmarks
+## Repository Structure
 
-### Allen-Cahn Equation
-A "stiff" PDE benchmark known for sharp interfaces and gradient pathology. The framework successfully converges without manual weight tuning.
-
-### Navier-Stokes (Flow Around a Cylinder)
-Simulates steady flow at **$Re=100$**.
-- Resolves the destructive conflict between **Pressure ($p$)** and **Velocity ($u, v$)** gradients.
-- Ensures local mass conservation (Continuity) is satisfied early in training.
-
-## 📁 Repository Structure
-- `pinn_engine/`: Core DGB-PINN engine (Model, Balancer, Surgery).
-- `problems/`: Physics residual definitions (Allen-Cahn, Navier-Stokes).
-- `experiments/`: Training and validation scripts.
-- `results/`: Output logs, plots, and saved model weights.
-
-## 🛠️ Usage
-
-### Run Allen-Cahn Training
-```bash
-python experiments/run_ac.py
+```text
+.
+├── experiments/
+│   ├── run_ac.py                  # Training script for 1D Allen-Cahn
+│   ├── run_cylinder.py            # Training script for 2D Navier-Stokes
+│   └── run_inverse_discovery.py   # Parameter discovery via noisy data
+├── pinn_engine/
+│   ├── balancer.py                # DB-PINN and EMAWelford implementations
+│   ├── model.py                   # Core neural network and SIREN architecture
+│   ├── sampling.py                # Energy-Adaptive Sampling (EAS) logic
+│   └── surgery.py                 # PCGrad and GTN implementations
+├── problems/
+│   ├── allen_cahn.py              # Equation, IC, and BC definitions for AC
+│   ├── inverse_allen_cahn.py      # Setup for inverse coefficient discovery
+│   └── navier_stokes.py           # 2D steady flow PDE and cylinder boundaries
+└── results/                       # Generated models (.pth) and visualizations
 ```
 
-### Run Navier-Stokes (Cylinder Flow) Training
-```bash
-python experiments/run_cylinder.py
-```
-
----
-*Developed for research into "Type II" PINN failures and advanced gradient balancing (2026).*
+#Author
+Kingshuk Chatterjee
