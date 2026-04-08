@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 import os
+import argparse
 
 # Set project root in path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -11,7 +12,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from pinn_engine.model import PINN
 from pinn_engine.balancer import DBBalancer
 from pinn_engine.surgery import PINNGradientSurgery
-from problems.navier_stokes import navier_stokes_residuals, cylinder_bc_loss, sample_domain_ns
+from pinn_engine.sampling import ResidualSampler
+from problems.navier_stokes import navier_stokes_residuals, cylinder_bc_loss, sample_domain_ns, cylinder_mask
+
+# Set default precision to float64 (Required for SIREN/surgery stability)
+torch.set_default_dtype(torch.float64)
 
 def train_cylinder(max_epochs=2000, lr=0.0005, re=100, use_gtn=True):
     # 1. Initialize Model (3 outputs: u, v, p)
@@ -27,9 +32,16 @@ def train_cylinder(max_epochs=2000, lr=0.0005, re=100, use_gtn=True):
     print(f"Fluid Dynamics Training: Flow over Cylinder (Re={re})")
     print(f"GTN Enabled: {use_gtn}")
     
+    # 3. RAR Setup
+    bounds = [(0.0, 1.1), (0.0, 0.41)]
+    sampler = ResidualSampler(model, navier_stokes_residuals, bounds, mask_fn=cylinder_mask)
+    x_pde, y_pde = sample_domain_ns(n_pde=1500) # Start with uniform
+    
     for epoch in range(max_epochs):
-        # Sample Domain
-        x_pde, y_pde = sample_domain_ns(n_pde=1500)
+        # Adaptive Refinement every 50 epochs
+        if epoch % 50 == 0 and epoch > 0:
+            sampled_coords = sampler.sample(n_points=1500)
+            x_pde, y_pde = sampled_coords[:, 0:1], sampled_coords[:, 1:2]
         
         # Calculate Losses
         l_pde = navier_stokes_residuals(model, x_pde, y_pde, re=re) # [lu, lv, lc]
@@ -52,11 +64,15 @@ def train_cylinder(max_epochs=2000, lr=0.0005, re=100, use_gtn=True):
             bc_total = sum(l.item() for l in l_bc)
             print(f"Epoch {epoch:5d} | Sum Loss: {avg_loss:.6f} | PDE: {pde_total:.4f} | BC: {bc_total:.4f}")
 
-    return model
+    return model, x_pde, y_pde
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max_epochs", type=int, default=1000)
+    args = parser.parse_args()
+
     # Run the fluid training
-    model = train_cylinder(max_epochs=1000, use_gtn=True)
+    model, x_pde, y_pde = train_cylinder(max_epochs=args.max_epochs, use_gtn=True)
     
     # Save the model
     torch.save(model.state_dict(), "pinn_cylinder_re100.pth")
@@ -67,7 +83,7 @@ if __name__ == "__main__":
     x = np.linspace(0, 1.1, nx)
     y = np.linspace(0, 0.41, ny)
     X, Y = np.meshgrid(x, y)
-    coords_vis = torch.tensor(np.stack([X.flatten(), Y.flatten()], axis=1), dtype=torch.float32)
+    coords_vis = torch.tensor(np.stack([X.flatten(), Y.flatten()], axis=1), dtype=torch.float64)
     
     with torch.no_grad():
         out = model(coords_vis)
@@ -86,3 +102,18 @@ if __name__ == "__main__":
     plt.ylabel("y")
     plt.savefig("cylinder_velocity.png")
     print("Velocity field saved as 'cylinder_velocity.png'.")
+    
+    # 2. Plot Sampling Density
+    plt.figure(figsize=(10, 4))
+    # Regenerate current sampling for visualization
+    # (Assuming we use the final sampled x_pde, y_pde)
+    plt.scatter(x_pde.detach().numpy(), y_pde.detach().numpy(), s=1, alpha=0.5, c='blue')
+    circle = plt.Circle((0.2, 0.2), 0.05, color='red', fill=False)
+    plt.gca().add_artist(circle)
+    plt.title("RAR Sampling Density (Final Refinement)")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.xlim(0, 1.1)
+    plt.ylim(0, 0.41)
+    plt.savefig("sampling_density.png")
+    print("Sampling density saved as 'sampling_density.png'.")

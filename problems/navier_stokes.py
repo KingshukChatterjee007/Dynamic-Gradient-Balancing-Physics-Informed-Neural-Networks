@@ -4,6 +4,7 @@ def navier_stokes_residuals(model, x, y, re=100):
     """
     Computes 2D steady Navier-Stokes residuals.
     x, y: tensors of shape (N, 1) with requires_grad=True
+    re: Reynolds number (can be a scalar or a differentiable tensor for inverse discovery)
     """
     coords = torch.cat([x, y], dim=1)
     out = model(coords)
@@ -75,15 +76,18 @@ def cylinder_bc_loss(model, n_bc=200):
     
     return [l_in_u, l_in_v, l_out_p, l_wall_v, l_cyl_u, l_cyl_v]
 
+def cylinder_mask(x, y):
+    """Returns a mask where True means point is OUTSIDE the cylinder."""
+    cx, cy, r_sq = 0.2, 0.2, 0.05**2
+    dist_sq = (x - cx)**2 + (y - cy)**2
+    return dist_sq > r_sq
+
 def sample_domain_ns(n_pde=2000):
     # Sample within rectangle [0, 1.1] x [0, 0.41]
     x = torch.rand(n_pde, 1) * 1.1
     y = torch.rand(n_pde, 1) * 0.41
     
-    # Filter out points inside the cylinder
-    cx, cy, r_sq = 0.2, 0.2, 0.05**2
-    dist_sq = (x - cx)**2 + (y - cy)**2
-    mask = dist_sq > r_sq
+    mask = cylinder_mask(x, y)
     
     x = x[mask.view(-1)].clone().detach().requires_grad_(True)
     y = y[mask.view(-1)].clone().detach().requires_grad_(True)

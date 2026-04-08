@@ -49,7 +49,8 @@ def generate_noisy_data(model_true, epsilon_true, snapshots=[0.1, 0.25, 0.5, 0.7
         
         with torch.no_grad():
             u_clean = model_true(torch.cat([x, t], dim=1))
-            noise = torch.randn_like(u_clean) * noise_lv
+            # Scale noise relative to the standard deviation of the current field snapshot
+            noise = torch.randn_like(u_clean) * noise_lv * u_clean.std()
             u_noisy = u_clean + noise
             
         data.append((x, t, u_noisy))

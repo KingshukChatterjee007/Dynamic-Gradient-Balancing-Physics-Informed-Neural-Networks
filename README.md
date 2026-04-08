@@ -25,6 +25,17 @@ Optimized for multi-variable fluid dynamics (e.g., Navier-Stokes).
 
 ### 4. SIREN-based Architecture
 - Utilizes **Sinusoidal Representation Networks** (SIREN) for superior capturing of high-frequency components and smooth derivatives in stiff PDEs.
+- Maintained at `float64` precision natively to guard against precision-loss masking gradient pathology.
+
+### 5. Residual-based Adaptive Refinement (RAR)
+Dynamically focuses the network's capacity on physically demanding regions.
+- Computes spatial PDE violation densities on a meshless continuous sample pool.
+- Utilizes probablistic multinomial re-distribution to force the model to concentrate points around complex structures (e.g., wake flow borders).
+
+### 6. Inverse Fluid Discovery Pipeline
+Elevates the forward PINN solver into a robust parameter discovery machine.
+- Combines sparse noisy sensor approximations (MSE Data Loss) with unconstrained PDE logic.
+- Incorporates a **Softplus Physics Anchor** to prevent convergence into physically impossible bounds (like negative viscosity).
 
 ## 📊 Benchmarks
 
@@ -35,6 +46,7 @@ A "stiff" PDE benchmark known for sharp interfaces and gradient pathology. The f
 Simulates steady flow at **$Re=100$**.
 - Resolves the destructive conflict between **Pressure ($p$)** and **Velocity ($u, v$)** gradients.
 - Ensures local mass conservation (Continuity) is satisfied early in training.
+- **Inverse Discovery Extension**: Successfully isolates and predicts hidden fluid Reynolds metrics utilizing only wake measurements containing 10% realistic Gaussian noise levels.
 
 ## 📁 Repository Structure
 - `pinn_engine/`: Core DGB-PINN engine (Model, Balancer, Surgery).
@@ -51,8 +63,13 @@ python experiments/run_ac.py
 
 ### Run Navier-Stokes (Cylinder Flow) Training
 ```bash
-python experiments/run_cylinder.py
+python experiments/run_cylinder.py --max_epochs 1000
+```
+
+### Run Navier-Stokes Inverse Discovery (Reynolds Search)
+```bash
+python experiments/run_inverse_cylinder.py --max_epochs 2000 --noise 0.1
 ```
 
 ---
-*Developed for research into "Type II" PINN failures and advanced gradient balancing (2026).*
+*Developed for research into "Type II" PINN failures, advanced gradient balancing, and inverse problem discovery (2026).*

@@ -13,6 +13,9 @@ from pinn_engine.balancer import DBBalancer
 from pinn_engine.surgery import PINNGradientSurgery
 from problems.allen_cahn import allen_cahn_residual, initial_condition_loss, boundary_condition_loss, sample_domain
 
+# Enforce globally to interact correctly with float64 SIREN internals
+torch.set_default_dtype(torch.float64)
+
 def train(max_epochs=5000, lr=0.001, use_db=True, use_surgery=True):
     # 1. Initialize Model
     model = PINN(in_features=2, hidden_features=128, hidden_layers=4, out_features=1)
