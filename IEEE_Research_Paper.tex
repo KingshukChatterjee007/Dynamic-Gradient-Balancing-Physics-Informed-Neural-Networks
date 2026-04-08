@@ -218,14 +218,14 @@ We first validate the framework on the stiff Allen-Cahn equation (\cref{eq:ac}).
 \centering
 \begin{subfigure}[b]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{results/solution_snapshot.png}
+    \includegraphics[width=\textwidth]{solution_snapshot.png}
     \caption{Predicted phase field $u(x, t{=}1.0)$ after 1{,}000 epochs. The network has begun resolving the interface structure but requires extended training ($>$5{,}000 epochs) for full convergence at $\epsilon = 10^{-4}$.}
     \label{fig:ac_snapshot}
 \end{subfigure}
 \hfill
 \begin{subfigure}[b]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{results/ac_convergence.png}
+    \includegraphics[width=\textwidth]{ac_convergence.png}
     \caption{Allen-Cahn training convergence showing stable loss decay across all loss channels after the initial transient.}
     \label{fig:ac_convergence}
 \end{subfigure}
@@ -240,7 +240,7 @@ We first validate the framework on the stiff Allen-Cahn equation (\cref{eq:ac}).
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.48\textwidth]{results/cylinder_velocity.png}
+\includegraphics[width=0.48\textwidth]{cylinder_velocity.png}
 \caption{Predicted velocity magnitude $\|\bm{u}\| = \sqrt{u^2 + v^2}$ for steady flow around a cylinder at $Re=100$, showing the expected wake structure downstream of the obstacle.}
 \label{fig:velocity}
 \end{figure}
@@ -251,14 +251,14 @@ We first validate the framework on the stiff Allen-Cahn equation (\cref{eq:ac}).
 \centering
 \begin{subfigure}[b]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{results/sampling_density.png}
+    \includegraphics[width=\textwidth]{sampling_density.png}
     \caption{Sampling density after RAR refinement, showing heavy concentration in the cylinder wake region.}
     \label{fig:sampling}
 \end{subfigure}
 \hfill
 \begin{subfigure}[b]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{results/rar_density_overlay.png}
+    \includegraphics[width=\textwidth]{rar_density_overlay.png}
     \caption{RAR collocation overlay with the cylinder boundary (red circle) at $(0.2, 0.2)$.}
     \label{fig:rar}
 \end{subfigure}
@@ -284,14 +284,14 @@ The inverse model is initialized with $Re_0 \approx 50$ (via the Softplus anchor
 \centering
 \begin{subfigure}[b]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{results/discovery_re_convergence.png}
+    \includegraphics[width=\textwidth]{discovery_re_convergence.png}
     \caption{Reynolds number trajectory: the predicted $Re$ converges from the blind initialization ($Re_0 \approx 50$) toward the ground truth ($Re = 100$).}
     \label{fig:re_convergence}
 \end{subfigure}
 \hfill
 \begin{subfigure}[b]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{results/discovery_convergence.png}
+    \includegraphics[width=\textwidth]{discovery_convergence.png}
     \caption{Combined data loss and physics loss during inverse discovery, showing concurrent reduction of both objectives without destructive interference.}
     \label{fig:inv_loss}
 \end{subfigure}
@@ -346,7 +346,7 @@ Baseline                       & \texttimes & \texttimes & \texttimes & $-12.3$ 
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.48\textwidth]{results/forward_loss_comparison.png}
+\includegraphics[width=0.48\textwidth]{forward_loss_comparison.png}
 \caption{Forward problem loss trajectories (log scale). The Baseline exhibits characteristic oscillation due to gradient conflict, while the full SOTA pipeline achieves smooth, monotonic decay.}
 \label{fig:loss_comparison}
 \end{figure}

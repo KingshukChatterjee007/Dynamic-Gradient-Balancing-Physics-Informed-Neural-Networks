@@ -1,8 +1,9 @@
-Experiment,Config,Metric,Value
-Forward,Baseline,Final Loss,0.4668727222207881
-Forward,Test A,Final Loss,0.5079783445571348
-Forward,Test B,Final Loss,0.758221060220364
-Forward,SOTA,Final Loss,1.0248305918316527
-Inverse,Baseline,Abs Error,49.99251331996313
-Inverse,Test A,Abs Error,49.9926140678956
-Inverse,SOTA,Abs Error,49.856601770820944
+Problem,Config,Final Loss,Wall Time,ε_pred,ε_error
+Forward (NS),Baseline,0.406141,25.1s,N/A,N/A
+Forward (NS),Test A (EMA),0.355685,26.7s,N/A,N/A
+Forward (NS),Test B (EMA+PC),0.810181,31.6s,N/A,N/A
+Forward (NS),SOTA (Full),0.812653,31.5s,N/A,N/A
+Inverse (AC),Baseline,61717998.780858,—,4.54878461,4548684.61%
+Inverse (AC),Test A (EMA),15411882.455363,—,4.54467069,4544570.69%
+Inverse (AC),Test B (EMA+PC),45056073.862138,—,4.55964724,4559547.24%
+Inverse (AC),SOTA (Full),7.981830,—,0.00950885,9408.85%
