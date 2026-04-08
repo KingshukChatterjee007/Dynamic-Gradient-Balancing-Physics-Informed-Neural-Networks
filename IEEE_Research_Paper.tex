@@ -7,6 +7,9 @@
 \usepackage{textcomp}
 \usepackage{xcolor}
 \usepackage{booktabs}
+\usepackage{cleveref} % Added for dynamic referencing (Eq., Fig., Table)
+\usepackage{bm}       % Added for bold math vectors
+
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 
@@ -37,15 +40,17 @@ Physics-Informed Neural Networks routinely experience "Gradient Pathology"—whe
 \section{Methodology}
 
 \subsection{Directional Alignment \& Gradient Task Normalization}
-If the dot product of two gradient vectors satisfies $\nabla \mathcal{L}_i \cdot \nabla \mathcal{L}_j < 0$, the optimizer alters the trajectory via PCGrad projection:
+addressing Type-II directional conflict, we adapt Gradient Surgery. If the inner product of two gradients satisfies $\nabla \mathcal{L}_i \cdot \nabla \mathcal{L}_j < 0$, the optimizer alters the trajectory via PCGrad projection:
 \begin{equation}
-    \nabla \mathcal{L}_i^* = \nabla \mathcal{L}_i - \frac{\nabla \mathcal{L}_i \cdot \nabla \mathcal{L}_j}{\|\nabla \mathcal{L}_j\|^2} \nabla \mathcal{L}_j
+    \nabla \mathcal{L}_i^* = \nabla \mathcal{L}_i - \frac{\nabla \mathcal{L}_i \cdot \nabla \mathcal{L}_j}{\|\nabla \mathcal{L}_j\|_2^2} \nabla \mathcal{L}_j
+    \label{eq:pcgrad}
 \end{equation}
-To ensure projection geometries are not skewed by immense differential scaling (e.g. pressure grids vs velocity fields), we introduce Gradient Task Normalization (GTN) to scale vectors prior to surgery projections:
+To ensure projection geometries are not skewed by immense differential scaling (e.g., pressure grids vs. velocity fields), we introduce Gradient Task Normalization (GTN) to scale vectors prior to surgery projections:
 \begin{equation}
     \nabla \tilde{\mathcal{L}}_i = \frac{\nabla \mathcal{L}_i}{\|\nabla \mathcal{L}_i\|_2 + \epsilon} \cdot \mu_{task}
+    \label{eq:gtn}
 \end{equation}
-where $\mu_{task}$ represents a unified domain magnitude target.
+where $\mu_{task}$ represents a unified domain magnitude scalar target.
 
 \subsection{Residual-based Adaptive Refinement (RAR) Schedule}
 Uniform domain sampling starves turbulent regions of representation. Our RAR algorithm periodically relocates training coordinates dynamically. Specifically, every 50 epochs, the system uniformly samples 15,000 distinct candidate coordinates across the geometric bounds. The true PDE residual $\mathcal{R}(x_i)$ is evaluated devoid of backpropagation constraint. Utilizing a weighted multinomial probability $P(x_i) \propto |\mathcal{R}(x_i)|$, the entire 1,500 point training cluster is overwritten probabilistically, forcing learning focus into extreme error envelopes.
@@ -53,7 +58,7 @@ Uniform domain sampling starves turbulent regions of representation. Our RAR alg
 \section{Experiments \& Results}
 
 \subsection{Stiff Boundary: Allen-Cahn Equation}
-We validated spatial gradient adaptability against the transient phase transitions of the Allen-Cahn PDE ($\epsilon \approx 0.0001$). Baseline networks failed due to spatial stiffness. The integrated Dynamic Balancer safely steered the SIREN network parameters without instability, perfectly reproducing the final time state $t=1.0$ (Fig. \ref{fig:ac}).
+We validated spatial gradient adaptability against the transient phase transitions of the Allen-Cahn PDE ($\epsilon \approx 0.0001$). Baseline networks failed due to spatial stiffness. The integrated Dynamic Balancer safely steered the SIREN network parameters without instability, perfectly reproducing the final time state $t=1.0$ (\cref{fig:ac}).
 
 \begin{figure}[htbp]
 \centerline{\includegraphics[width=0.48\textwidth]{results/ac_solution.png}}
@@ -62,7 +67,7 @@ We validated spatial gradient adaptability against the transient phase transitio
 \end{figure}
 
 \subsection{Forward Resolution: Flow Over a Cylinder}
-Evaluating the steady Navier-Stokes equations at $Re=100$. Baseline PINNs notoriously crash on the Continuity module constraint. As shown in the ablation benchmarks, integrating PCGrad with RAR resulted in definitive structural decreases in sum-loss profiles. Crucially, the RAR coordinate plotter verifiably centralized sampling inside the high-friction wake constraints natively (Fig. \ref{fig:rar}).
+Evaluating the steady Navier-Stokes equations at $Re=100$. Baseline PINNs notoriously crash on the Continuity module constraint. As shown in the ablation benchmarks, integrating PCGrad with RAR resulted in definitive structural decreases in sum-loss profiles. Crucially, the RAR coordinate plotter verifiably centralized sampling inside the high-friction wake constraints natively (\cref{fig:rar}).
 
 \begin{figure}[htbp]
 \centerline{\includegraphics[width=0.48\textwidth]{results/rar_density_overlay.png}}
@@ -77,22 +82,23 @@ Tasked with discovering an unknown Reynolds Number ($Re=100$), sparse fluid wake
 To definitively prove individual component impact over a standard PINN baseline, an isolated systemic ablation study was orchestrated tracking convergence trajectories and Absolute Parameter Error ($\mathcal{E}_{abs}$). 
 
 \begin{table}[htbp]
-\caption{2x3 Ablation Configuration Benchmarks}
-\begin{center}
-\begin{tabular}{@{}lccc@{}}
+\caption{Systemic Ablation Configuration Benchmarks}
+\label{tab:ablation}
+\centering
+\setlength{\tabcolsep}{8pt} % Better column spacing
+\begin{tabular}{@{}lcc@{}}
 \toprule
-\textbf{Configuration} & \textbf{Forward (Sum Loss)} & \textbf{Inv $\mathcal{E}_{abs}$ (Re=100)} \\
+\textbf{Configuration} & \textbf{Forward (Sum Loss)} & \textbf{Inv. $\mathcal{E}_{abs}$ ($Re=100$)} \\
 \midrule
 Baseline (Uniform, Static) & $0.466$ (Oscillating) & Over-fit / Failed \\
 Test A (+ DB/EMA Balancer) & $0.507$ & $49.99$ (Flatline) \\
 Test B (+ PCGrad) & $0.758$ (Robust) & - \\
-\textbf{SOTA (+ RAR / Softplus)} & $\textbf{1.02}$ (Smoothest) & $\textbf{49.85}$ (Converging) \\
+\textbf{SOTA (+ RAR \& Softplus)} & $\mathbf{1.02}$ \textbf{(Smoothest)} & $\mathbf{49.85}$ \textbf{(Converging)} \\
 \bottomrule
 \end{tabular}
-\end{center}
 \end{table}
 
-The Baseline metrics universally demonstrated terminal variance, getting stuck or exploding heavily. Integrating the EMA balancer marginally protected convergence but stalled the Inverse problem parameter shift as noise dominated the calculation framework. Applying PCGrad completely negated noise overriding, and introducing RAR forced the final loss calculation profiles into sustained, predictable logarithmic decays completely avoiding gradient "Tug-of-War" traps.
+The Baseline metrics universally demonstrated terminal variance, getting stuck or exploding heavily as shown in \cref{tab:ablation}. Integrating the EMA balancer marginally protected convergence but stalled the Inverse problem parameter shift as noise dominated the calculation framework. Applying PCGrad completely negated noise overriding, and introducing RAR forced the final loss calculation profiles into sustained, predictable logarithmic decays completely avoiding gradient "Tug-of-War" traps.
 
 \subsection{Computational Complexity}
 Adding gradient surgery introduces structural overhead. Constructing normal planes across $K$ distinctive loss vectors tasks the backend with $O(K^2 \cdot \mathcal{O}_{params})$ processing cycles. In our defined Navier-Stokes schema, grouping specific physical constraints limits $K \le 3$, yielding minimal memory latency while guaranteeing convergence routes entirely unachievable within pure static $O(K)$ weighting bounds.
