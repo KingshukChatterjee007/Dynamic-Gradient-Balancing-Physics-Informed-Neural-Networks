@@ -73,14 +73,14 @@ class PINNGradientSurgery:
         return grad_magnitudes
 
     def _get_flat_grad(self):
-        """Helper to flatten all gradients into a single vector."""
+        """Helper to flatten all gradients into a single vector on the same device as params."""
         grads = []
         for group in self._optim.param_groups:
             for p in group['params']:
                 if p.grad is None:
                     grads.append(torch.zeros_like(p.data).view(-1))
                 else:
-                    grads.append(p.grad.data.clone().view(-1))
+                    grads.append(p.grad.data.view(-1))
         return torch.cat(grads)
 
     def _set_flat_grad(self, flat_grad):

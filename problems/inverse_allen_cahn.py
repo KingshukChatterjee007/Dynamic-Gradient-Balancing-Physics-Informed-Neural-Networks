@@ -38,13 +38,13 @@ def snapshot_loss(model, snapshot_data):
         total_loss += torch.mean((u_pred - u_noisy)**2)
     return total_loss / len(snapshot_data)
 
-def generate_noisy_data(model_true, epsilon_true, snapshots=[0.1, 0.25, 0.5, 0.75, 1.0], n_pts=200, noise_lv=0.1):
+def generate_noisy_data(model_true, epsilon_true, snapshots=[0.1, 0.25, 0.5, 0.75, 1.0], n_pts=200, noise_lv=0.1, device='cpu'):
     """
     Generates synthetic 'experimental' data with Gaussian noise.
     """
     data = []
     for t_val in snapshots:
-        x = torch.linspace(-1, 1, n_pts, dtype=torch.float64).view(-1, 1)
+        x = torch.linspace(-1, 1, n_pts, dtype=torch.float64, device=device).view(-1, 1)
         t = torch.ones_like(x) * t_val
         
         with torch.no_grad():
@@ -53,5 +53,5 @@ def generate_noisy_data(model_true, epsilon_true, snapshots=[0.1, 0.25, 0.5, 0.7
             noise = torch.randn_like(u_clean) * noise_lv * u_clean.std()
             u_noisy = u_clean + noise
             
-        data.append((x, t, u_noisy))
+        data.append((x.to(device), t.to(device), u_noisy.to(device)))
     return data

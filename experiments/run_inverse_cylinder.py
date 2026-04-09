@@ -19,12 +19,12 @@ from problems.navier_stokes import navier_stokes_residuals, cylinder_mask
 torch.set_default_dtype(torch.float64)
 
 class InverseFluidLearner(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, device='cpu'):
         super().__init__()
         # Softplus Anchor: k starts such that softplus(k)*10 ≈ 50 (Initial guess Re=50)
         # softplus(k) = 5 -> k ≈ 4.993
-        self.k = torch.nn.Parameter(torch.tensor([5.0], dtype=torch.float64))
-        self.model = PINN(in_features=2, hidden_features=128, hidden_layers=5, out_features=3)
+        self.k = torch.nn.Parameter(torch.tensor([5.0], dtype=torch.float64, device=device))
+        self.model = PINN(in_features=2, hidden_features=128, hidden_layers=5, out_features=3).to(device)
         
     @property
     def re_pred(self):
@@ -35,11 +35,11 @@ class InverseFluidLearner(torch.nn.Module):
     def forward(self, x):
         return self.model(x)
 
-def generate_sensor_data(true_re=100.0, num_sensors=1000, noise_lv=0.1, model_path="pinn_cylinder_re100.pth"):
+def generate_sensor_data(true_re=100.0, num_sensors=1000, noise_lv=0.1, model_path="pinn_cylinder_re100.pth", device='cpu'):
     # Load pre-trained model as ground truth
-    true_model = PINN(in_features=2, hidden_features=128, hidden_layers=5, out_features=3)
+    true_model = PINN(in_features=2, hidden_features=128, hidden_layers=5, out_features=3).to(device)
     if os.path.exists(model_path):
-        true_model.load_state_dict(torch.load(model_path))
+        true_model.load_state_dict(torch.load(model_path, map_location=device))
         print(f"Loaded ground truth model from {model_path}.")
     else:
         print("Warning: Pre-trained model not found. Using initialized model as ground truth (results may be meaningless).")
@@ -47,8 +47,8 @@ def generate_sensor_data(true_re=100.0, num_sensors=1000, noise_lv=0.1, model_pa
     true_model.eval()
 
     # Distribute sensors randomly in the domain
-    x_cand = torch.rand(num_sensors * 2, 1, dtype=torch.float64) * 1.1
-    y_cand = torch.rand(num_sensors * 2, 1, dtype=torch.float64) * 0.41
+    x_cand = torch.rand(num_sensors * 2, 1, dtype=torch.float64, device=device) * 1.1
+    y_cand = torch.rand(num_sensors * 2, 1, dtype=torch.float64, device=device) * 0.41
     
     # Filter out sensors inside the cylinder
     mask = cylinder_mask(x_cand, y_cand)

@@ -42,8 +42,10 @@ def cylinder_bc_loss(model, n_bc=200):
     Defines boundary losses for Flow Around a Cylinder.
     Returns a list of individual loss terms for surgery.
     """
+    device = next(model.parameters()).device
+    
     # 1. Inlet (x=0)
-    y_in = torch.rand(n_bc // 4, 1) * 0.41
+    y_in = torch.rand(n_bc // 4, 1, device=device) * 0.41
     x_in = torch.zeros_like(y_in)
     in_coords = torch.cat([x_in, y_in], dim=1)
     in_out = model(in_coords)
@@ -51,21 +53,22 @@ def cylinder_bc_loss(model, n_bc=200):
     l_in_v = (in_out[:, 1:2] - 0.0).pow(2).mean() # v=0
     
     # 2. Outlet (x=1.1)
-    y_out = torch.rand(n_bc // 4, 1) * 0.41
+    y_out = torch.rand(n_bc // 4, 1, device=device) * 0.41
     x_out = torch.ones_like(y_out) * 1.1
     out_coords = torch.cat([x_out, y_out], dim=1)
     out_out = model(out_coords)
     l_out_p = (out_out[:, 2:3] - 0.0).pow(2).mean() # p=0
     
     # 3. Walls (top/bottom)
-    x_wall = torch.rand(n_bc // 4, 1) * 1.1
-    y_wall = torch.cat([torch.zeros(n_bc // 8, 1), torch.ones(n_bc // 8, 1) * 0.41])
+    x_wall = torch.rand(n_bc // 4, 1, device=device) * 1.1
+    y_wall = torch.cat([torch.zeros(n_bc // 8, 1, device=device), 
+                        torch.ones(n_bc // 8, 1, device=device) * 0.41])
     wall_coords = torch.cat([x_wall, y_wall], dim=1)
     wall_out = model(wall_coords)
     l_wall_v = (wall_out[:, 1:2] - 0.0).pow(2).mean() # v=0 (No penetration)
     
     # 4. Cylinder No-Slip
-    theta = torch.rand(n_bc // 2, 1) * 2 * torch.pi
+    theta = torch.rand(n_bc // 2, 1, device=device) * 2 * torch.pi
     cx, cy, r = 0.2, 0.2, 0.05
     x_cyl = cx + r * torch.cos(theta)
     y_cyl = cy + r * torch.sin(theta)
@@ -82,10 +85,10 @@ def cylinder_mask(x, y):
     dist_sq = (x - cx)**2 + (y - cy)**2
     return dist_sq > r_sq
 
-def sample_domain_ns(n_pde=2000):
+def sample_domain_ns(n_pde=2000, device='cpu'):
     # Sample within rectangle [0, 1.1] x [0, 0.41]
-    x = torch.rand(n_pde, 1) * 1.1
-    y = torch.rand(n_pde, 1) * 0.41
+    x = torch.rand(n_pde, 1, device=device) * 1.1
+    y = torch.rand(n_pde, 1, device=device) * 0.41
     
     mask = cylinder_mask(x, y)
     

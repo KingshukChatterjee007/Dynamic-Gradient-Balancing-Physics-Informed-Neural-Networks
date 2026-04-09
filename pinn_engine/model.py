@@ -12,7 +12,7 @@ class SineLayer(nn.Module):
         self.omega_0 = omega_0
         self.is_first = is_first
         self.in_features = in_features
-        self.linear = nn.Linear(in_features, out_features, bias=bias).to(torch.float64)
+        self.linear = nn.Linear(in_features, out_features, bias=bias)
         self.init_weights()
 
     def init_weights(self):
@@ -48,13 +48,13 @@ class PINN(nn.Module):
             self.net.append(SineLayer(hidden_features, hidden_features, is_first=False, omega_0=outer_omega_0))
 
         # Output Layer (Linear for regression)
-        final_linear = nn.Linear(hidden_features, out_features).to(torch.float64)
+        final_linear = nn.Linear(hidden_features, out_features)
         with torch.no_grad():
             final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / outer_omega_0, 
                                          np.sqrt(6 / hidden_features) / outer_omega_0)
             
         self.net.append(final_linear)
-        self.net = nn.Sequential(*self.net).to(torch.float64)
+        self.net = nn.Sequential(*self.net)
 
     def forward(self, coords):
         # coords shape: (batch, in_features)
