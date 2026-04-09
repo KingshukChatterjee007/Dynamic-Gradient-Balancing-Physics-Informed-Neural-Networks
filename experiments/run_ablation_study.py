@@ -243,6 +243,8 @@ if __name__ == "__main__":
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--noise", type=float, default=0.1)
     parser.add_argument("--device", type=str, default=None)
+    parser.add_argument("--only-sota", action="store_true",
+                        help="Run only the final SOTA configuration")
     args = parser.parse_args()
 
     if args.device is None:
@@ -257,6 +259,12 @@ if __name__ == "__main__":
         EPOCHS         = 20000
         RAR_CANDIDATES = 15000
 
+    # Filter configs if --only-sota is requested
+    active_configs = ABLATION_CONFIGS
+    if args.only_sota:
+        active_configs = [c for c in ABLATION_CONFIGS if "SOTA" in c[0]]
+        print("\n*** SOTA ONLY MODE: Skipping baselines/test configs ***\n")
+
     results       = []
     fwd_histories = {}
     inv_histories = {}
@@ -265,7 +273,7 @@ if __name__ == "__main__":
     print("  PHASE 1: FORWARD PROBLEM — Navier-Stokes Cylinder Flow (Re=100)")
     print("="*70)
 
-    for name, use_ema, use_pcgrad, use_rar in ABLATION_CONFIGS:
+    for name, use_ema, use_pcgrad, use_rar in active_configs:
         final_loss, wall_time, loss_hist = run_forward(
             config_name    = name,
             epochs         = EPOCHS,
@@ -275,6 +283,7 @@ if __name__ == "__main__":
             device         = device,
             rar_candidates = RAR_CANDIDATES,
         )
+        # ... rest of the loop remains the same ...
         fwd_histories[name] = loss_hist
         results.append({
             "Problem":    "Forward (NS)",
@@ -292,7 +301,7 @@ if __name__ == "__main__":
 
     TARGET_EPS = 1e-4
 
-    for name, use_ema, use_pcgrad, use_softplus in ABLATION_CONFIGS:
+    for name, use_ema, use_pcgrad, use_softplus in active_configs:
         final_eps, eps_hist, loss_hist = run_inverse(
             config_name    = name,
             epochs         = EPOCHS,
