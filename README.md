@@ -1,64 +1,56 @@
-# Dynamic Gradient Balancing Physics-Informed Neural Networks (DGB-PINN)
+# Resolving Gradient Pathologies in Physics-Informed Neural Networks
+
 
 [![Paper](https://img.shields.io/badge/arXiv-Pending-b31b1b.svg)](https://arxiv.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository contains the official implementation of **"Resolving Gradient Pathologies in Physics-Informed Neural Networks via Dynamic Gradient Surgery and Adaptive Refinement for Robust Inverse Discovery Under Noise."** This framework resolves catastrophic gradient pathologies—both magnitude imbalance (Type-I) and directional conflict (Type-II)—in multi-objective PINN optimization. It is specifically engineered to recover hidden physical parameters (e.g., Reynolds number) from highly noisy sensor data ($10\%$ Gaussian noise) in stiff PDE systems where standard PINNs diverge.
 
----
+[cite_start]This repository contains the official implementation of the paper: **Resolving Gradient Pathologies in Physics-Informed Neural Networks via Dynamic Gradient Surgery and Adaptive Refinement for Robust Inverse Discovery Under Noise**[cite: 1].
 
-## 🚀 Key Innovations
+## Overview
 
-1. **Sinusoidal Representation Networks (SIREN):** Replaces standard ReLU/Tanh activations with periodic sine functions, providing analytically exact, non-vanishing higher-order derivatives essential for stiff PDEs.
-2. **Forgetful EMA Dual-Balancer (DB-PINN):** Adaptively scales loss weights using an online Welford Exponential Moving Average (EMA) to prevent magnitude-based pathology.
-3. **Gradient Surgery (PCGrad) + GTN:** Resolves the "Tug-of-War" directional conflict. If the gradients of two loss terms interfere ($\nabla_{\theta}\mathcal{L}_{i} \cdot \nabla_{\theta}\mathcal{L}_{j} < 0$), the interfering gradient is projected onto the normal plane of its competitor. Gradient Task Normalization (GTN) scales these vectors prior to surgery.
-4. **Residual-based Adaptive Refinement (RAR):** Dynamically hunts down physics violations (e.g., fluid turbulence, phase interfaces) by probabilistically redistributing collocation points to regions with the highest PDE residual.
-5. **Softplus Physics Anchor:** A bounded, differentiable constraint ($Re = \beta \cdot \ln(1 + e^k)$) that stabilizes inverse parameter discovery and prevents mathematically impossible physical states (e.g., negative viscosity) during noisy gradient updates.
+[cite_start]Physics-Informed Neural Networks (PINNs) offer a mesh-free alternative to classical numerical solvers by embedding governing partial differential equations (PDEs) directly into the training objective[cite: 2]. [cite_start]However, they routinely suffer from two forms of gradient pathology[cite: 3]:
+* [cite_start]**Magnitude Imbalance (Type-I):** One loss term dominates the optimization[cite: 3].
+* [cite_start]**Directional Conflict (Type-II):** Satisfying one physical constraint actively degrades another (the "Tug-of-War" problem)[cite: 3].
 
----
+[cite_start]These pathologies become catastrophic in inverse parameter discovery, where sparse, noise-corrupted sensor data must coexist with strict PDE enforcement[cite: 4]. [cite_start]This repository provides a unified framework to overcome these challenges[cite: 5].
 
-## 🧮 Mathematical Architecture
+## Key Components
 
-### The Gradient Pathology Problem
-Standard PINNs optimize a static scalarized multi-task objective:
-$$\mathcal{L}_{total} = \lambda_{pde}\mathcal{L}_{pde} + \sum_{k=1}^{K} \lambda_{bc,k}\mathcal{L}_{bc,k} + \lambda_{data}\mathcal{L}_{data}$$
-This formulation often collapses due to conflicting gradient directions. 
+[cite_start]The canonical PINN objective takes the form[cite: 9]:
+$$\mathcal{L}_{\text{total}} = \lambda_{\text{pde}} \mathcal{L}_{\text{pde}} + \sum_{k=1}^{K} \lambda_{k} \mathcal{L}_{\text{bc},k} + \lambda_{\text{data}} \mathcal{L}_{\text{data}}$$
 
-### The PCGrad Projection Solution
-To prevent the data loss from overwriting the physics pathway, we apply projective surgery:
-$$\nabla_{\theta}\mathcal{L}_{i}^{*} = \nabla_{\theta}\mathcal{L}_{i} - \frac{\nabla_{\theta}\mathcal{L}_{i} \cdot \nabla_{\theta}\mathcal{L}_{j}}{||\nabla_{\theta}\mathcal{L}_{j}||_{2}^{2} + \epsilon} \nabla_{\theta}\mathcal{L}_{j}$$
+[cite_start]Our framework couples four synergistic modules to stabilize training and enable robust inverse discovery[cite: 5]:
 
-### Energy-Adaptive Sampling (RAR)
-For stiff systems like Allen-Cahn, points are sampled dynamically proportional to the Ginzburg-Landau energy density:
-$$e(u) = \frac{\epsilon}{2}|\nabla u|^{2} + \frac{1}{4\epsilon}(u^{2} - 1)^{2}$$
+### 1. Dynamic Gradient Balancing (DB-PINN)
+[cite_start]Addresses Type-I magnitude imbalance by tracking the running gradient scale of each loss term using a Forgetful Exponential Moving Average (EMA)[cite: 34]. [cite_start]The EMA estimate is[cite: 35]:
+$$\hat{g}_i^{(t)} = \alpha \cdot \hat{g}_i^{(t-1)} + (1 - \alpha) \cdot g_i^{(t)}$$
+[cite_start]where $g_i^{(t)} = \|\nabla_\theta \mathcal{L}_i^{(t)}\|$ and $\alpha = 0.999$[cite: 34, 35]. [cite_start]Loss weights are adaptively rebalanced based on these statistics[cite: 35, 36].
 
----
+### 2. Gradient Surgery (PCGrad) with Gradient Task Normalization (GTN)
+[cite_start]Resolves Type-II directional conflicts[cite: 38]. [cite_start]If gradients conflict ($\nabla_\theta \mathcal{L}_i \cdot \nabla_\theta \mathcal{L}_j < 0$), the interfering gradient is projected onto the normal plane of its competitor[cite: 39]:
+$$\nabla_\theta \mathcal{L}_i^{*} = \nabla_\theta \mathcal{L}_i - \frac{\nabla_\theta \mathcal{L}_i \cdot \nabla_\theta \mathcal{L}_j}{\|\nabla_\theta \mathcal{L}_j\|_2^2 + \epsilon} \nabla_\theta \mathcal{L}_j$$
+[cite_start]Before surgery, GTN normalizes each gradient vector to $O(1)$ scale to prevent domination by high-magnitude terms like pressure gradients in fluid dynamics[cite: 40, 41, 42].
 
-## 📊 Benchmarks & Results
+### 3. Residual-based Adaptive Refinement (RAR)
+[cite_start]Dynamically redistributes collocation points based on the current residual landscape, sampling heavily in regions with high PDE residual magnitude $|\mathcal{R}(\bm{x}_j)|$[cite: 47, 48, 50].
 
-The architecture is rigorously validated across two canonical environments:
-1. **The Allen-Cahn Equation:** A heavily stiff phase-field transition ($\epsilon = 10^{-4}$).
-2. **Navier-Stokes (Cylinder Flow):** Multi-variable forward and inverse fluid dynamics ($Re=100$).
+### 4. Softplus Physics Anchor
+[cite_start]Ensures physical validity during inverse problems[cite: 19]. [cite_start]Rather than a raw parameter, unknown variables (like Reynolds number) are parameterized through a Softplus activation to guarantee positive values[cite: 55, 56]:
+$$Re = \beta \cdot \ln(1 + e^k)$$
 
-### 🏆 Ablation Study: Inverse Discovery Under $10\%$ Noise
-*Target: Discover $Re=100$ from heavily corrupted wake sensor data.*
+## Architecture
 
-| Configuration | DB Balancer | PCGrad | Softplus Anchor | Final $Re$ | $\%$ Error |
-| :--- | :---: | :---: | :---: | :--- | :--- |
-| **Baseline (Standard PINN)** | ❌ | ❌ | ❌ | Diverged (NaN) | $\infty$ |
-| **Test A (EMA Only)** | ✅ | ❌ | ❌ | Flatlined ($\approx 50.0$) | $50.0\%$ |
-| **SOTA (Full Pipeline)** | ✅ | ✅ | ✅ | **$98.5 \pm 1.2$** | **$< 1.5\%$** |
+[cite_start]The framework utilizes Sinusoidal Representation Networks (SIREN)[cite: 29], where each hidden layer applies:
+$$\bm{h}_{l+1} = \sin\!\left(\omega_0 \cdot (\bm{W}_l \bm{h}_l + \bm{b}_l)\right)$$
+[cite_start]This provides analytically exact, non-vanishing derivatives critical for computing PDE residuals involving second-order spatial derivatives[cite: 30]. [cite_start]All computations are performed in `float64` precision[cite: 32].
 
----
+## Benchmarks
 
-## ⚙️ Installation & Setup
+[cite_start]The framework is validated on two canonical benchmarks[cite: 6]:
+* [cite_start]**Allen-Cahn Equation:** A stiff phase-field equation ($\epsilon = 10^{-4}$) modeling phase separation dynamics[cite: 58, 59].
+* [cite_start]**2D Navier-Stokes (Cylinder Flow):** Steady incompressible flow around a cylinder at $Re=100$[cite: 6].
 
-Ensure you have a CUDA-capable GPU. The models rely on `torch.float64` to prevent numerical rounding from corrupting the gradient surgery inner products.
+## Results Highlight
 
-```bash
-# Clone the repository
-git clone [https://github.com/yourusername/Dynamic-Gradient-Balancing-PINNs.git](https://github.com/yourusername/Dynamic-Gradient-Balancing-PINNs.git)
-cd Dynamic-Gradient-Balancing-PINNs
-
-# Install dependencies
-pip install -r requirements.txt
+[cite_start]In inverse parameter estimation (discovering $Re$ from sensors with 10% Gaussian noise), baseline PINNs diverge or flatline[cite: 89]. [cite_start]Our complete framework converges stably, recovering the target Reynolds number with approximately 1.5% relative error ($Re_{\text{pred}} \approx 98.5 \pm 1.2$)[cite: 87, 88].
