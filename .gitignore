@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# PyTorch / Models
+*.pth
+*.pt
+*.ckpt
+
+# Project Outputs / Visualization
+*.png
+*.jpg
+*.pdf
+results/
+logs/
+
+# OS Specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+
+# Antigravity / AI Agent artifacts
+.gemini/
+task.md
+walkthrough.md
+implementation_plan.md
+research_notes.md
+*.exp

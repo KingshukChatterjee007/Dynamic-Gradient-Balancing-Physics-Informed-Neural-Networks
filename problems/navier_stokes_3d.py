@@ -129,7 +129,7 @@ def sphere_bc_loss(model, n_bc=500, bounds=None):
     
     return [l_in, l_out_p, l_wall, l_sphere]
 
-def sphere_mask(x, y, z):
+def sphere_mask(x, y, z, t=None):
     """Returns a mask where True means point is OUTSIDE the sphere."""
     cx, cy, cz, r_sq = 0.2, 0.2, 0.2, 0.05**2
     dist_sq = (x - cx)**2 + (y - cy)**2 + (z - cz)**2
