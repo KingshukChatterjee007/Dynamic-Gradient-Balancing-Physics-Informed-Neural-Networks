@@ -68,3 +68,17 @@ class DBBalancer:
 
     def get_weights(self):
         return self.weights
+
+def gll_loss(prediction, target, log_var):
+    """
+    Gaussian Log-Likelihood Loss for Aleatoric Uncertainty.
+    prediction: Mean prediction from model
+    target: Ground truth or physical residual (target=0)
+    log_var: Predicted log-variance from model
+    """
+    # Precision term 1/sigma^2
+    precision = torch.exp(-log_var)
+    # Loss: 0.5 * precision * (target - prediction)^2 + 0.5 * log_var
+    diff_sq = (target - prediction)**2
+    loss = 0.5 * precision * diff_sq + 0.5 * log_var
+    return loss.mean()
