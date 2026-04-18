@@ -1,0 +1,70 @@
+# PINN-SOTA Implementation Roadmap: Beyond State-of-the-Art
+
+This document outlines a phased implementation strategy to evolve the current Dynamic Gradient Balancing PINN framework into the most robust, high-performance Physics-Informed Neural Network framework available.
+
+---
+
+## Phase 1: Complexity & Dimensionality (The Physics Frontier)
+Goal: Move from "toy-scale" 2D steady-state to "industrial-scale" 3D transient physics.
+
+1.  **3D Vector Field Extension**: 
+    - Upgrade `problems/navier_stokes.py` to handle (u, v, w, p) across (x, y, z).
+    - Implement 3D Boundary Condition masks for complex volumes.
+2.  **Unsteady Flow (Temporal PINN)**: 
+    - Introduce the time dimension (t) as an input coordinate.
+    - Leverage "Causal PINN" weightings to ensure the model learns the physics in chronological order, preventing "temporal leakage."
+3.  **Boussinesq Multi-Physics Coupling**: 
+    - Integrate Heat Transfer equations.
+    - Resolve the multi-scale gradient pathologies between the Momentum (fluid) and Energy (heat) equations using the PCGrad engine.
+
+---
+
+## Phase 2: Robustness & Scientific Intelligence
+Goal: Make the model resilient to real-world data and capable of "Design."
+
+1.  **Uncertainty-Aware PINNs (UQ)**: 
+    - Implement Heteroscedastic Aleatoric Loss to quantify data noise.
+    - Add Epistemic Uncertainty via MC-Dropout or Ensembles to identify regions where the model doesn't "know" the physics.
+2.  **Optimal Sensor Placement (Active Learning)**: 
+    - Use the RAR (Adaptive Refinement) density map to output "Saliency Maps."
+    - Automatically suggest the XYZ coordinates for physical sensors to maximize parameter discovery accuracy (e.g., finding Re or Viscosity).
+3.  **Soft-Physical Constraints (Boundary Smoothing)**: 
+    - Implement "Ghost Cell" boundary conditions to handle noisy or discontinuous boundaries gracefully using the DB-PINN balancer.
+
+---
+
+## Phase 3: High-Performance Architecture (Modern AI Engineering)
+Goal: Speed up training and handle non-standard geometries.
+
+1.  **Geometric GNN-PINN Hybrid**: 
+    - Use Graph Neural Networks (GNNs) to encode the boundary geometry.
+    - Allows the PINN to generalize to *new* shapes (e.g., different airfoil profiles) without retraining.
+2.  **Meta-Weighting Strategy**: 
+    - Replace EMA statistical balancing with a "Controller Model" (Reinforcement Learning or Meta-Learner).
+    - The controller observes the gradient conflict history and predicts the optimal lambda weights for the next 100 epochs.
+3.  **Mixed-Precision & Distributed Scaling**: 
+    - Implement Automatic Mixed Precision (AMP) where safe.
+    - Distribute the RAR candidate sampling across multiple GPUs to handle 100k+ collocation points.
+
+---
+
+## Phase 4: Productization & Visualization (The "Best Actual Thing")
+Goal: Create a tool professionals can use.
+
+1.  **Physical-Intelligence Dashboard (Live)**: 
+    - A Web-based UI (Gradio/Streamlit) showing:
+        - Real-time Convergence of Physical Constants (e.g., Re value moving toward target).
+        - Gradient Tug-of-War Map (Visualization of which equations are currently conflicting).
+        - Residual-Density Overlay (Where the model is struggling).
+2.  **FastAPI Inference Wrapper**: 
+    - Create a production-ready API that takes coordinates and returns (u, v, p) in <5ms.
+    - Support batch CSV/JSON exports for external CFD validation.
+3.  **Automatic "Discover-and-Design" Loop**: 
+    - A feature where the model first identifies the unknown parameters from sensors, and THEN performs Shape Optimization (ADjoint method) to improve some physical performance metric (e.g., reducing drag).
+
+---
+
+## Strategic "Secret Sauce" Ideas
+*   **Transfer Learning Library**: Create a weights-library of pre-trained "Basic Flow" primitives (Laminar, Vortex, Wake). Use these as a starting point for any new problem to reduce training time from 20k epochs to 2k.
+*   **Hard-Constraint Enforcement**: Move from "Soft" BCs (loss terms) to "Hard-Enforced" BCs using distance-field-based architecture (Lagrange multipliers or R-functions) to ensure BCs are satisfied *exactly* by construction.
+*   **Physics-Informed Pre-training**: Use a cheap, low-fidelity classical solver (like a basic Lattice Boltzmann code) to generate a "rough guess" for pre-training, then use the high-precision PINN for the final refinement.
