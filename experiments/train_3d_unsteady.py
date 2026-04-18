@@ -18,18 +18,19 @@ from problems.navier_stokes_3d import navier_stokes_3d_residuals, sphere_bc_loss
 # Set default precision to float64
 torch.set_default_dtype(torch.float64)
 
-def train_3d_unsteady(max_epochs=1000, lr=0.0005, re=100, n_pde=5000, n_batches=5):
+def train_3d_unsteady(max_epochs=1000, lr=0.0001, re=100, n_pde=20000, n_batches=20):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Training on device: {device}")
 
     # 1. Initialize Model (4 inputs: x, y, z, t | 4 outputs: u, v, w, p)
+    # Increased network capacity for 3D complexity
     model = PINN(in_features=4, hidden_features=128, hidden_layers=5, out_features=4).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     
     # 2. Balancers & Surgery
     # PDE losses (4: u, v, w, c) + BC losses (4: in, out, wall, sphere) = 8
     num_total_losses = 8
-    balancer = DBBalancer(num_conditions=num_total_losses-1, update_freq=50)
+    balancer = DBBalancer(num_conditions=num_total_losses-1, update_freq=100)
     surgery = PINNGradientSurgery(optimizer, use_gtn=True)
     
     # 3. Sampler Setup
@@ -92,6 +93,11 @@ def train_3d_unsteady(max_epochs=1000, lr=0.0005, re=100, n_pde=5000, n_batches=
             
         # 5. Apply Surgery and Optimize
         weights = balancer.get_weights()
+        
+        # Stability Patch: Gradient Clipping
+        # This prevents "billions" scale updates that cause divergence
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        
         grad_mags = surgery.step_with_grads(accumulated_grads, weights=weights)
         
         # 6. Update Stats
