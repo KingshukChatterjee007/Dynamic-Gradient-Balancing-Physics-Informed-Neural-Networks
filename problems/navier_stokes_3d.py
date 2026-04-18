@@ -1,16 +1,18 @@
 import torch
 
-def navier_stokes_3d_residuals(model, x, y, z, t, re=100):
+def navier_stokes_3d_residuals(model, x, y, z, t, re=100, pr=0.71, ri=1.0):
     """
-    Computes 3D Unsteady Navier-Stokes residuals.
+    Computes 3D Unsteady Navier-Stokes residuals with Boussinesq Thermal Coupling.
     x, y, z, t: tensors of shape (N, 1) with requires_grad=True
     re: Reynolds number
+    pr: Prandtl number (Heat/Momentum diff ratio)
+    ri: Richardson number (Buoyancy strength)
     """
     coords = torch.cat([x, y, z, t], dim=1)
     out = model(coords)
     
-    # We expect 4 outputs: u, v, w, p
-    u, v, w, p = out[:, 0:1], out[:, 1:2], out[:, 2:3], out[:, 3:4]
+    # We expect 5 outputs: u, v, w, p, T
+    u, v, w, p, T = out[:, 0:1], out[:, 1:2], out[:, 2:3], out[:, 3:4], out[:, 4:5]
     
     # Gradient helper to handle graph creation for 2nd order derivatives
     def grad(q, input_var):
@@ -18,54 +20,40 @@ def navier_stokes_3d_residuals(model, x, y, z, t, re=100):
         return g if g is not None else torch.zeros_like(input_var)
     
     # First order derivatives
-    u_t = grad(u, t)
-    u_x = grad(u, x)
-    u_y = grad(u, y)
-    u_z = grad(u, z)
+    u_t, u_x, u_y, u_z = grad(u, t), grad(u, x), grad(u, y), grad(u, z)
+    v_t, v_x, v_y, v_z = grad(v, t), grad(v, x), grad(v, y), grad(v, z)
+    w_t, w_x, w_y, w_z = grad(w, t), grad(w, x), grad(w, y), grad(w, z)
+    T_t, T_x, T_y, T_z = grad(T, t), grad(T, x), grad(T, y), grad(T, z)
     
-    v_t = grad(v, t)
-    v_x = grad(v, x)
-    v_y = grad(v, y)
-    v_z = grad(v, z)
-    
-    w_t = grad(w, t)
-    w_x = grad(w, x)
-    w_y = grad(w, y)
-    w_z = grad(w, z)
-    
-    p_x = grad(p, x)
-    p_y = grad(p, y)
-    p_z = grad(p, z)
+    p_x, p_y, p_z = grad(p, x), grad(p, y), grad(p, z)
     
     # Second order spatial derivatives
-    u_xx = grad(u_x, x)
-    u_yy = grad(u_y, y)
-    u_zz = grad(u_z, z)
-    
-    v_xx = grad(v_x, x)
-    v_yy = grad(v_y, y)
-    v_zz = grad(v_z, z)
-    
-    w_xx = grad(w_x, x)
-    w_yy = grad(w_y, y)
-    w_zz = grad(w_z, z)
+    u_xx, u_yy, u_zz = grad(u_x, x), grad(u_y, y), grad(u_z, z)
+    v_xx, v_yy, v_zz = grad(v_x, x), grad(v_y, y), grad(v_z, z)
+    w_xx, w_yy, w_zz = grad(w_x, x), grad(w_y, y), grad(w_z, z)
+    T_xx, T_yy, T_zz = grad(T_x, x), grad(T_y, y), grad(T_z, z)
     
     # 1. Continuity Equation: div(U) = 0
     res_c = u_x + v_y + w_z
     
-    # 2. Momentum Equations
+    # 2. Momentum Equations (with Buoyancy Term)
     re_inv = 1.0 / re
     
-    # res_u = u_t + (U.grad)u + p_x - (1/Re) * laplacian(u)
     res_u = u_t + (u * u_x + v * u_y + w * u_z) + p_x - re_inv * (u_xx + u_yy + u_zz)
     res_v = v_t + (u * v_x + v * v_y + w * v_z) + p_y - re_inv * (v_xx + v_yy + v_zz)
-    res_w = w_t + (u * w_x + v * w_y + w * w_z) + p_z - re_inv * (w_xx + w_yy + w_zz)
+    # Buoyancy acts in Z direction (w)
+    res_w = w_t + (u * w_x + v * w_y + w * w_z) + p_z - re_inv * (w_xx + w_yy + w_zz) - ri * T
+    
+    # 3. Energy Equation
+    alpha = re_inv / pr
+    res_T = T_t + (u * T_x + v * T_y + w * T_z) - alpha * (T_xx + T_yy + T_zz)
     
     return [
         res_u.pow(2).mean(), 
         res_v.pow(2).mean(), 
         res_w.pow(2).mean(), 
-        res_c.pow(2).mean()
+        res_c.pow(2).mean(),
+        res_T.pow(2).mean()
     ]
 
 def sphere_bc_loss(model, n_bc=500, bounds=None):
@@ -82,14 +70,15 @@ def sphere_bc_loss(model, n_bc=500, bounds=None):
     def get_rand(n, b):
         return torch.rand(n, 1, device=device, dtype=torch.float64) * (b[1] - b[0]) + b[0]
 
-    # 1. Inlet (x = x_min, u=1, v=0, w=0)
+    # 1. Inlet (x = x_min, u=1, v=0, w=0, T=0)
     t_in = get_rand(n_bc // 5, bounds[3])
     y_in = get_rand(n_bc // 5, bounds[1])
     z_in = get_rand(n_bc // 5, bounds[2])
     x_in = torch.ones_like(t_in) * bounds[0][0]
     in_coords = torch.cat([x_in, y_in, z_in, t_in], dim=1)
     in_out = model(in_coords)
-    l_in = (in_out[:, 0:1] - 1.0).pow(2).mean() + in_out[:, 1:3].pow(2).mean()
+    # Velocity (u=1, v=0, w=0) + Temperature (T=0)
+    l_in = (in_out[:, 0:1] - 1.0).pow(2).mean() + in_out[:, 1:3].pow(2).mean() + in_out[:, 4:5].pow(2).mean()
     
     # 2. Outlet (x = x_max, p=0)
     t_out = get_rand(n_bc // 5, bounds[3])
@@ -100,20 +89,16 @@ def sphere_bc_loss(model, n_bc=500, bounds=None):
     out_out = model(out_coords)
     l_out_p = out_out[:, 3:4].pow(2).mean()
     
-    # 3. Walls (y=min/max, z=min/max, v=0 or w=0)
-    # For simplicity, no-penetration on all face walls
+    # 3. Walls (y=min/max, z=min/max, v=0, w=0, T=0)
     t_wall = get_rand(n_bc // 5, bounds[3])
     x_wall = get_rand(n_bc // 5, bounds[0])
-    # Randomly pick y or z to be at boundary
     y_wall = get_rand(n_bc // 5, bounds[1])
     z_wall = get_rand(n_bc // 5, bounds[2])
-    # This is a simplification; in a full impl we'd sample all 4 faces
     wall_coords = torch.cat([x_wall, y_wall, z_wall, t_wall], dim=1)
     wall_out = model(wall_coords)
-    l_wall = wall_out[:, 1:3].pow(2).mean() # v=0, w=0
+    l_wall = wall_out[:, 1:3].pow(2).mean() + wall_out[:, 4:5].pow(2).mean()
     
-    # 4. Sphere No-Slip (at (0.2, 0.2, 0.2) with r=0.05)
-    # Sample points on surface of sphere
+    # 4. Sphere No-Slip & Heated (at (0.2, 0.2, 0.2) with r=0.05, u=v=w=0, T=1.0)
     phi = torch.rand(n_bc // 2, 1, device=device, dtype=torch.float64) * 2 * torch.pi
     theta = torch.rand(n_bc // 2, 1, device=device, dtype=torch.float64) * torch.pi
     t_sphere = get_rand(n_bc // 2, bounds[3])
@@ -125,7 +110,8 @@ def sphere_bc_loss(model, n_bc=500, bounds=None):
     
     sphere_coords = torch.cat([x_s, y_s, z_s, t_sphere], dim=1)
     sphere_out = model(sphere_coords)
-    l_sphere = sphere_out[:, 0:3].pow(2).mean() # u=v=w=0
+    # Velocity (u=v=w=0) + Heated Source (T=1.0)
+    l_sphere = sphere_out[:, 0:3].pow(2).mean() + (sphere_out[:, 4:5] - 1.0).pow(2).mean()
     
     return [l_in, l_out_p, l_wall, l_sphere]
 
