@@ -33,31 +33,47 @@ class PINNGradientSurgery:
             loss.backward(retain_graph=(i < num_losses - 1))
             
             grad = self._get_flat_grad()
-            
-            # Apply GTN: Normalize by running mean of gradient magnitude
-            if self.use_gtn:
-                gnorm = torch.norm(grad).item()
-                self.task_norms[i].update(gnorm)
-                # Rescale gradient to common magnitude (e.g. 1.0)
-                scale = 1.0 / (self.task_norms[i].mean + 1e-8)
-                grad *= scale
-                
-            if weights is not None:
-                grad *= weights[i]
             grads.append(grad)
+
+        return self.step_with_grads(grads, weights)
+
+    def step_with_grads(self, grads, weights=None):
+        """
+        Applies PCGrad surgery to pre-computed gradients and updates parameters.
+        Useful for coordinate sub-batching / gradient accumulation.
+        """
+        num_losses = len(grads)
+        
+        if self.use_gtn and self.task_norms is None:
+             from .balancer import EMAWelford
+             self.task_norms = [EMAWelford() for _ in range(num_losses)]
+
+        # Apply GTN and Weights
+        processed_grads = []
+        for i, grad in enumerate(grads):
+            g = grad.clone()
+            if self.use_gtn:
+                gnorm = torch.norm(g).item()
+                self.task_norms[i].update(gnorm)
+                scale = 1.0 / (self.task_norms[i].mean + 1e-8)
+                g *= scale
+            
+            if weights is not None:
+                g *= weights[i]
+            processed_grads.append(g)
 
         # 2. Apply Gradient Surgery (PCGrad)
         indices = list(range(num_losses))
         random.shuffle(indices)
         
-        reduced_grads = copy.deepcopy(grads)
+        reduced_grads = copy.deepcopy(processed_grads)
         for i in indices:
             for j in indices:
                 if i == j: continue
-                dot_prod = torch.dot(reduced_grads[i], grads[j])
+                dot_prod = torch.dot(reduced_grads[i], processed_grads[j])
                 if dot_prod < 0:
-                    norm_sq = torch.dot(grads[j], grads[j]) + 1e-8
-                    reduced_grads[i] -= (dot_prod / norm_sq) * grads[j]
+                    norm_sq = torch.dot(processed_grads[j], processed_grads[j]) + 1e-8
+                    reduced_grads[i] -= (dot_prod / norm_sq) * processed_grads[j]
 
         # 3. Aggregate
         final_grad = torch.stack(reduced_grads).sum(dim=0)
