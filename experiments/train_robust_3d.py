@@ -34,9 +34,20 @@ def train_robust_3d(max_epochs=500, lr=0.0001, n_pde=10000):
     surgery = PINNGradientSurgery(optimizer, use_gtn=True)
     diagnostics = PINNDiagnostics(model)
     
+    # Define a wrapper to extract only the MEAN heads for physics/BCs
+    class MeanHeadWrapper(torch.nn.Module):
+        def __init__(self, model):
+            super().__init__()
+            self.pinn = model
+        def forward(self, x):
+            return self.pinn(x)[:, :self.pinn.out_features]
+            
+    mean_model = MeanHeadWrapper(model)
+    
     # 3. Sampler
+    # Note: Sampler needs the mean model to compute physical residuals
     bounds = [[0.0, 1.1], [0.0, 0.41], [0.0, 0.41], [0.0, 1.0]]
-    sampler = ResidualSampler(model, navier_stokes_3d_residuals, bounds, mask_fn=sphere_mask)
+    sampler = ResidualSampler(mean_model, navier_stokes_3d_residuals, bounds, mask_fn=sphere_mask)
     
     all_coords = torch.rand(n_pde, 4, device=device) * (torch.tensor([b[1]-b[0] for b in bounds], device=device)) + torch.tensor([b[0] for b in bounds], device=device)
     all_coords.requires_grad_(True)
@@ -48,27 +59,19 @@ def train_robust_3d(max_epochs=500, lr=0.0001, n_pde=10000):
         # 4. Probabilistic Loss Calculation
         # Forward pass: model outputs [mean_u, mean_v, mean_w, mean_p, log_var_u, ...]
         out = model(all_coords)
-        u_mean, v_mean, w_mean, p_mean = out[:, 0], out[:, 1], out[:, 2], out[:, 3]
         log_var = out[:, 4:] # shape [N, 4]
         
-        # We compute residuals using the MEAN predictions
-        # Note: navier_stokes_3d_residuals assumes outputs are JUST u,v,w,p.
-        # So we wrap the model or pass values manually.
-        # Let's create a lambda that just returns the first 4 heads for the physics kernel.
-        mean_heads_only = lambda c: model(c)[:, :4]
-        
         x, y, z, t = all_coords[:, 0:1], all_coords[:, 1:2], all_coords[:, 2:3], all_coords[:, 3:4]
-        pde_res = navier_stokes_3d_residuals(mean_heads_only, x, y, z, t, re=100) # [4 tensors]
+        # Use mean_model for residuals and BCs
+        pde_res = navier_stokes_3d_residuals(mean_model, x, y, z, t, re=100) # [4 tensors]
         
         # Compute GLL Loss for each PDE term
-        # L = 0.5 * exp(-log_var) * residual^2 + 0.5 * log_var
         l_pde = []
         for i in range(4):
-            # Target for residual is 0
             l_pde.append(gll_loss(pde_res[i], torch.zeros_like(pde_res[i]), log_var[:, i]))
             
         # BC losses (Standard MSE for now, or GLL if we have data)
-        l_bc_list = sphere_bc_loss(mean_heads_only, n_bc=400, bounds=bounds)
+        l_bc_list = sphere_bc_loss(mean_model, n_bc=400, bounds=bounds)
         
         total_losses = l_pde + l_bc_list
         
